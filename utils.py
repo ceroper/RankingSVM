@@ -11,7 +11,7 @@ def get_group_rankings(model, X, groups):
     group (array-like): - a numpy array of shape (n_samples,) containing group indexes
 
     Returns
-    pandas.series: The final ranking values
+    pandas.Series: The final ranking values
     '''
     prediction = model.predict(X)
     confidence = model.decision_function(X).max(axis = 1)

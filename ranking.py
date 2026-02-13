@@ -13,7 +13,6 @@ import itertools
 import numpy as np
 
 from sklearn import svm, linear_model
-from sklearn.model_selection import KFold
 from sklearn.utils.extmath import safe_sparse_dot
 
 
@@ -131,7 +130,7 @@ class RankSVM(svm.LinearSVC):
         # Map each group to the indices belonging to it
         from collections import defaultdict
         group_to_indices = defaultdict(list)
-        for idx, gid in enumerate(group_ids): # does enumerate dedupe group_ids?
+        for idx, gid in enumerate(group_ids):
             group_to_indices[gid].append(idx)
 
         y_pred = np.empty(len(X_data), dtype=object)  # Use object dtype to allow storing ints or other types
