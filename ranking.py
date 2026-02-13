@@ -13,7 +13,7 @@ import itertools
 import numpy as np
 
 from sklearn import svm, linear_model
-from sklearn.model_selection import KFold
+from sklearn.utils.extmath import safe_sparse_dot
 
 
 def transform_pairwise(X, y):
@@ -78,14 +78,15 @@ class RankSVM(svm.LinearSVC):
 
         Parameters
         ----------
-        X : array, shape (n_samples, n_features)
+        X : array, shape (n_samples, n_features + grouping column)
         y : array, shape (n_samples,) or (n_samples, 2)
 
         Returns
         -------
         self
         """
-        X_trans, y_trans = transform_pairwise(X, y)
+        X_data = X[:, :-1]
+        X_trans, y_trans = transform_pairwise(X_data, y)
         super(RankSVM, self).fit(X_trans, y_trans)
         return self
 
@@ -105,7 +106,7 @@ class RankSVM(svm.LinearSVC):
             the rows in X.
         """
         if hasattr(self, 'coef_'):
-            return np.argsort(np.dot(X, self.coef_.T).ravel())
+            return np.argsort((safe_sparse_dot(X, self.coef_.T, dense_output=True) + self.intercept_).ravel())
         else:
             raise ValueError("Must call fit() prior to predict()")
         
@@ -149,46 +150,3 @@ class RankSVM(svm.LinearSVC):
 
 
         return y_pred
-
-    def score_group(self, X, y):
-        """
-        Because we transformed into a pairwise problem, chance level is at 0.5
-        """
-        X_trans, y_trans = transform_pairwise(X, y)
-        return np.mean(super(RankSVM, self).predict(X_trans) == y_trans)
-
-
-if __name__ == '__main__':
-    # as showcase, we will create some non-linear data
-    # and print the performance of ranking vs linear regression
-
-    np.random.seed(1)
-    n_samples, n_features = 300, 5
-    true_coef = np.random.randn(n_features)
-    X = np.random.randn(n_samples, n_features)
-    noise = np.random.randn(n_samples) / np.linalg.norm(true_coef)
-    y = np.dot(X, true_coef)
-    y = np.arctan(y) # add non-linearities
-    y += .1 * noise  # add noise
-    Y = np.c_[y, np.mod(np.arange(n_samples), 5)]  # add query fake id
-    cv = KFold(5)
-    i, (train, test) = next(enumerate(cv.split(X)))
-
-    # make a simple plot out of it
-    import matplotlib.pyplot as pl
-    pl.scatter(np.dot(X, true_coef), y)
-    pl.title('Data to be learned')
-    pl.xlabel('<X, coef>')
-    pl.ylabel('y')
-    pl.show()
-
-    # print the performance of ranking
-    rank_svm = RankSVM().fit(X[train], Y[train])
-    print ('Performance of ranking ', rank_svm.score_group(X[test], Y[test]))
-
-    # and that of linear regression
-    ridge = linear_model.RidgeCV(fit_intercept=True)
-    ridge.fit(X[train], y[train])
-    X_test_trans, y_test_trans = transform_pairwise(X[test], y[test])
-    score = np.mean(np.sign(np.dot(X_test_trans, ridge.coef_)) == y_test_trans)
-    print ('Performance of linear regression ', score)
