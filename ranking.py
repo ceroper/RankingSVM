@@ -14,6 +14,7 @@ import numpy as np
 
 from sklearn import svm, linear_model
 from sklearn.model_selection import KFold
+from sklearn.utils.extmath import safe_sparse_dot
 
 
 def transform_pairwise(X, y):
@@ -106,7 +107,7 @@ class RankSVM(svm.LinearSVC):
             the rows in X.
         """
         if hasattr(self, 'coef_'):
-            return np.argsort(np.dot(X, self.coef_.T).ravel())
+            return np.argsort((safe_sparse_dot(X, self.coef_.T, dense_output=True) + self.intercept_).ravel())
         else:
             raise ValueError("Must call fit() prior to predict()")
         
@@ -130,7 +131,7 @@ class RankSVM(svm.LinearSVC):
         # Map each group to the indices belonging to it
         from collections import defaultdict
         group_to_indices = defaultdict(list)
-        for idx, gid in enumerate(group_ids):
+        for idx, gid in enumerate(group_ids): # does enumerate dedupe group_ids?
             group_to_indices[gid].append(idx)
 
         y_pred = np.empty(len(X_data), dtype=object)  # Use object dtype to allow storing ints or other types
@@ -150,10 +151,3 @@ class RankSVM(svm.LinearSVC):
 
 
         return y_pred
-
-    def score_group(self, X, y):
-        """
-        Because we transformed into a pairwise problem, chance level is at 0.5
-        """
-        X_trans, y_trans = transform_pairwise(X, y)
-        return np.mean(super(RankSVM, self).predict(X_trans) == y_trans)
