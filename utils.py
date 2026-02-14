@@ -4,7 +4,8 @@ from sklearn.metrics import ndcg_score
 
 def get_group_rankings(model, X, groups):
     '''
-    Converts LinearSVC predictions into an ordered ranking of elements within the same group
+    Converts LinearSVC predictions into an ordered ranking of elements within the same group,
+    breaking ties assigned to the same classification based on the probability of being in the highest classification
     Parameters:
     model (LinearSVC): a linear SVC model
     X (array-like): a numpy array of shape (n_samples,n_features)
@@ -14,7 +15,8 @@ def get_group_rankings(model, X, groups):
     pandas.Series: The final ranking values
     '''
     prediction = model.predict(X)
-    confidence = model.decision_function(X).max(axis = 1)
+    conf = model.decision_function(X)
+    confidence = 1 / (1 + np.exp(-conf[:,-1]))
     full_preds = pd.DataFrame({'confidence': confidence, \
                 'prediction': prediction, \
                 'group': groups})
